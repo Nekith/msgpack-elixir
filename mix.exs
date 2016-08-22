@@ -4,7 +4,7 @@ defmodule MessagePack.Mixfile do
   def project do
     [ app: :message_pack,
       version: "0.2.0",
-      elixir: "~> 1.0.0 or ~> 0.15.1",
+      elixir: "~> 1.0",
       deps: deps,
       build_per_environment: false,
 
@@ -19,9 +19,10 @@ defmodule MessagePack.Mixfile do
   end
 
   defp deps do
-    [{ :excheck, "~> 0.2.0", only: :test },
+    [{:excheck, "~> 0.4", only: :test },
      {:triq, github: "krestenkrab/triq", only: :test},
-     { :poison, "~> 1.2.0", only: :test },]
+     {:poison, "~> 2.0", only: :test },
+     {:benchee, "~> 0.3", only: :dev}]
   end
 
   defp package do

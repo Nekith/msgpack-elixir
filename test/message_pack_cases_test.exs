@@ -20,8 +20,8 @@ defmodule MessagePackCasesTest do
                 |> File.read!
                 |> Poison.decode!
 
-    Enum.zip(from_msg, from_json) |> Enum.map fn({term1, term2})->
+    Enum.zip(from_msg, from_json) |> Enum.map(fn({term1, term2})->
       assert term1 == term2
-    end
+    end)
   end
 end
