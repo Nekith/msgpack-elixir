@@ -124,8 +124,8 @@ defmodule MessagePack.Packer do
 
   defp pack_map(map, options) do
     case do_pack_map(map, options) do
-      { :ok, binary } ->
-        case length(map) do
+      { :ok, binary, length } ->
+        case length do
           len when len < 16 ->
             << 0b1000 :: 4, len :: 4-integer-unit(1), binary :: binary >>
           len when len < 0x10000 ->
@@ -142,8 +142,8 @@ defmodule MessagePack.Packer do
 
   defp pack_array(list, options) do
     case do_pack_array(list, options) do
-      { :ok, binary } ->
-        case length(list) do
+      { :ok, binary, length } ->
+        case length do
           len when len < 16 ->
             << 0b1001 :: 4, len :: 4-integer-unit(1), binary :: binary >>
           len when len < 0x10000 ->
@@ -159,11 +159,11 @@ defmodule MessagePack.Packer do
   end
 
   def do_pack_map(map, options) do
-    do_pack_map(map, <<>>, options)
+    do_pack_map(map, <<>>, options, 0)
   end
 
-  defp do_pack_map([], acc, _), do: { :ok, acc }
-  defp do_pack_map([{ k, v }|t], acc, options) do
+  defp do_pack_map([], acc, _, len), do: { :ok, acc, len }
+  defp do_pack_map([{ k, v }|t], acc, options, len) do
     case do_pack(k, options) do
       { :error, _ } = error ->
         error
@@ -172,22 +172,22 @@ defmodule MessagePack.Packer do
           { :error, _ } = error ->
             error
           v ->
-            do_pack_map(t, acc <> k <> v, options)
+            do_pack_map(t, acc <> k <> v, options, len + 1)
         end
     end
   end
 
   defp do_pack_array(list, options) do
-    do_pack_array(list, <<>>, options)
+    do_pack_array(list, <<>>, options, 0)
   end
 
-  defp do_pack_array([], acc, _), do: { :ok, acc }
-  defp do_pack_array([h|t], acc, options) do
+  defp do_pack_array([], acc, _, len), do: { :ok, acc, len }
+  defp do_pack_array([h|t], acc, options, len) do
     case do_pack(h, options) do
       { :error, _ } = error ->
         error
       binary ->
-        do_pack_array(t, acc <> binary, options)
+        do_pack_array(t, acc <> binary, options, len + 1)
     end
   end
 
