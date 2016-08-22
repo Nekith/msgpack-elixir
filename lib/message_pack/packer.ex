@@ -52,8 +52,6 @@ defmodule MessagePack.Packer do
   end
 
   defp parse_options(options) do
-    enable_string = !!options[:enable_string]
-
     {packer, unpacker} = case options[:ext] do
       nil ->
         { nil, nil }
@@ -63,7 +61,12 @@ defmodule MessagePack.Packer do
         { list[:packer], list[:unpacker] }
     end
 
-    %{enable_string: enable_string, ext_packer: packer, ext_unpacker: unpacker, io_data: !!options[:io_data]}
+    %{
+      enable_string: !!options[:enable_string],
+      ext_packer: packer,
+      ext_unpacker: unpacker,
+      io_data: !!options[:io_data]
+    }
   end
 
   defp do_pack(nil, _),   do: << 0xC0 :: size(8) >>
@@ -73,13 +76,7 @@ defmodule MessagePack.Packer do
   defp do_pack(i, _) when is_integer(i) and i < 0, do: pack_int(i)
   defp do_pack(i, _) when is_integer(i), do: pack_uint(i)
   defp do_pack(f, _) when is_float(f), do: << 0xCB :: size(8), f :: size(64)-big-float-unit(1)>>
-  defp do_pack(binary, %{enable_string: true}) when is_binary(binary) do
-    if String.valid?(binary) do
-      pack_string(binary)
-    else
-      pack_bin(binary)
-    end
-  end
+  defp do_pack(binary, %{enable_string: true}) when is_binary(binary), do: pack_string(binary)
   defp do_pack(binary, _) when is_binary(binary), do: pack_raw(binary)
   defp do_pack([{k, v} | _t] = list, options), do: pack_map(list, options)
   defp do_pack(list, options) when is_list(list), do: pack_array(list, options)
