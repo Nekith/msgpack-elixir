@@ -55,7 +55,7 @@ defmodule MessagePack.Packer do
   defp do_pack(binary, _) when is_binary(binary), do: pack_raw(binary)
   defp do_pack(list, options) when is_list(list), do: pack_array(list, options)
   defp do_pack(%{__struct__: _}=term, %{ext_packer: packer}) when is_function(packer), do: pack_ext_wrap(term, packer)
-  defp do_pack(map, options) when is_map(map), do: pack_map(Enum.into(map,[]), options)
+  defp do_pack(map, options) when is_map(map), do: pack_map(Map.to_list(map), options)
 
   defp do_pack(term, %{ext_packer: packer}) when is_function(packer), do: pack_ext_wrap(term, packer)
   defp do_pack(term, _), do: { :error, { :badarg, term } }
@@ -159,7 +159,7 @@ defmodule MessagePack.Packer do
   end
 
   def do_pack_map(map, options) do
-    do_pack_map(:lists.reverse(map), <<>>, options)
+    do_pack_map(map, <<>>, options)
   end
 
   defp do_pack_map([], acc, _), do: { :ok, acc }
@@ -172,13 +172,13 @@ defmodule MessagePack.Packer do
           { :error, _ } = error ->
             error
           v ->
-            do_pack_map(t, << k :: binary, v :: binary, acc :: binary >>, options)
+            do_pack_map(t, acc <> k <> v, options)
         end
     end
   end
 
   defp do_pack_array(list, options) do
-    do_pack_array(:lists.reverse(list), <<>>, options)
+    do_pack_array(list, <<>>, options)
   end
 
   defp do_pack_array([], acc, _), do: { :ok, acc }
@@ -187,7 +187,7 @@ defmodule MessagePack.Packer do
       { :error, _ } = error ->
         error
       binary ->
-        do_pack_array(t, << binary :: binary, acc :: binary >>, options)
+        do_pack_array(t, acc <> binary, options)
     end
   end
 
