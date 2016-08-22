@@ -23,6 +23,34 @@ defmodule MessagePack.Packer do
     end
   end
 
+  @spec pack_iodata(term) :: { :ok, iolist(), integer } | { :error, term }
+  @spec pack_iodata(term, Keyword.t) :: { :ok, iolist(), integer } | { :error, term }
+  def pack_iodata(term, options \\ []) do
+    new_options = options
+      |> Keyword.put(:io_data, true)
+      |> parse_options
+
+    case do_pack(term, new_options) do
+      { :error, _ } = error ->
+        error
+      binary when is_binary(binary) ->
+        { :ok, binary, byte_size(binary) }
+      {iolist, size} ->
+        { :ok, iolist, size }
+    end
+  end
+
+  @spec pack_iodata!(term) :: {iolist(), integer} | no_return
+  @spec pack_iodata!(term, Keyword.t) :: {iolist(), integer} | no_return
+  def pack_iodata!(term, options \\ []) do
+    case pack_iodata(term, options) do
+      { :ok, packed, size } ->
+        {packed, size}
+      { :error, error } ->
+        raise ArgumentError, message: inspect(error)
+    end
+  end
+
   defp parse_options(options) do
     enable_string = !!options[:enable_string]
 
@@ -35,7 +63,7 @@ defmodule MessagePack.Packer do
         { list[:packer], list[:unpacker] }
     end
 
-    %{enable_string: enable_string, ext_packer: packer, ext_unpacker: unpacker}
+    %{enable_string: enable_string, ext_packer: packer, ext_unpacker: unpacker, io_data: !!options[:io_data]}
   end
 
   defp do_pack(nil, _),   do: << 0xC0 :: size(8) >>
@@ -124,7 +152,7 @@ defmodule MessagePack.Packer do
 
   defp pack_map(map, options) do
     case do_pack_map(map, options) do
-      { :ok, binary, length } ->
+      { :ok, binary, length } when is_binary(binary) ->
         case length do
           len when len < 16 ->
             << 0b1000 :: 4, len :: 4-integer-unit(1), binary :: binary >>
@@ -135,31 +163,51 @@ defmodule MessagePack.Packer do
           _ ->
             { :error, { :too_big, map } }
         end
-      error ->
-        error
-    end
-  end
-
-  defp pack_array(list, options) do
-    case do_pack_array(list, options) do
-      { :ok, binary, length } ->
+      { :ok, {iolist, size}, length } ->
         case length do
           len when len < 16 ->
-            << 0b1001 :: 4, len :: 4-integer-unit(1), binary :: binary >>
+            {[<< 0b1000 :: 4, len :: 4-integer-unit(1)>>, iolist], size + 1}
           len when len < 0x10000 ->
-            << 0xDC :: 8, len :: 16-big-unsigned-integer-unit(1), binary :: binary >>
+            {[<< 0xDE :: 8, len :: 16-big-unsigned-integer-unit(1)>>, iolist], size + 3}
           len when len < 0x100000000 ->
-            << 0xDD :: 8, len :: 32-big-unsigned-integer-unit(1), binary :: binary >>
+            {[<< 0xDF :: 8, len :: 32-big-unsigned-integer-unit(1)>>, iolist], size + 5}
           _ ->
-            { :error, { :too_big, list } }
+            { :error, { :too_big, map } }
         end
       error ->
         error
     end
   end
 
+  def do_pack_map(map, %{io_data: true} = options) do
+    do_pack_map_iodata(map, [], 0, options, 0)
+  end
+
   def do_pack_map(map, options) do
     do_pack_map(map, <<>>, options, 0)
+  end
+
+  defp do_pack_map_iodata([], acc, size, _, len), do: { :ok, {Enum.reverse(acc), size}, len }
+  defp do_pack_map_iodata([{ k, v }|t], acc, size, options, len) do
+    case do_pack(k, options) do
+      { :error, _ } = error ->
+        error
+      k ->
+        case do_pack(v, options) do
+          { :error, _ } = error ->
+            error
+          v ->
+            {key, key_size} = case k do
+              binary when is_binary(k) -> {binary, byte_size(binary)}
+              {_iolist, _size} = result -> result
+            end
+            {value, value_size} = case v do
+              binary when is_binary(binary) -> {binary, byte_size(binary)}
+              {_iolist, _size} = result -> result
+            end
+            do_pack_map_iodata(t, [value, key | acc], size + key_size + value_size, options, len + 1)
+        end
+    end
   end
 
   defp do_pack_map([], acc, _, len), do: { :ok, acc, len }
@@ -177,8 +225,52 @@ defmodule MessagePack.Packer do
     end
   end
 
+  defp pack_array(list, options) do
+    case do_pack_array(list, options) do
+      { :ok, binary, length } when is_binary(binary) ->
+        case length do
+          len when len < 16 ->
+            << 0b1001 :: 4, len :: 4-integer-unit(1), binary :: binary >>
+          len when len < 0x10000 ->
+            << 0xDC :: 8, len :: 16-big-unsigned-integer-unit(1), binary :: binary >>
+          len when len < 0x100000000 ->
+            << 0xDD :: 8, len :: 32-big-unsigned-integer-unit(1), binary :: binary >>
+          _ ->
+            { :error, { :too_big, list } }
+        end
+      { :ok, {iolist, size}, length } when is_list(iolist) ->
+        case length do
+          len when len < 16 ->
+            {[<< 0b1001 :: 4, len :: 4-integer-unit(1)>>, iolist], 1 + size}
+          len when len < 0x10000 ->
+            {[<< 0xDC :: 8, len :: 16-big-unsigned-integer-unit(1)>>, iolist], 3 + size}
+          len when len < 0x100000000 ->
+            {[<< 0xDD :: 8, len :: 32-big-unsigned-integer-unit(1)>>, iolist], 5 + size}
+          _ ->
+            { :error, { :too_big, list } }
+        end
+      error ->
+        error
+    end
+  end
+
+  defp do_pack_array(list, %{io_data: true} = options) do
+    do_pack_array_iodata(list, [], 0, options, 0)
+  end
   defp do_pack_array(list, options) do
     do_pack_array(list, <<>>, options, 0)
+  end
+
+  defp do_pack_array_iodata([], acc, size, _, len), do: { :ok, {Enum.reverse(acc), size}, len }
+  defp do_pack_array_iodata([h|t], acc, size, options, len) do
+    case do_pack(h, options) do
+      { :error, _ } = error ->
+        error
+      binary when is_binary(binary) ->
+        do_pack_array_iodata(t, [binary | acc], size + byte_size(binary), options, len + 1)
+      {iolist, size_io} ->
+        do_pack_array_iodata(t, [iolist | acc], size + size_io, options, len + 1)
+    end
   end
 
   defp do_pack_array([], acc, _, len), do: { :ok, acc, len }
