@@ -81,6 +81,7 @@ defmodule MessagePack.Packer do
     end
   end
   defp do_pack(binary, _) when is_binary(binary), do: pack_raw(binary)
+  defp do_pack([{k, v} | _t] = list, options), do: pack_map(list, options)
   defp do_pack(list, options) when is_list(list), do: pack_array(list, options)
   defp do_pack(%{__struct__: _}=term, %{ext_packer: packer}) when is_function(packer), do: pack_ext_wrap(term, packer)
   defp do_pack(map, options) when is_map(map), do: pack_map(Map.to_list(map), options)
