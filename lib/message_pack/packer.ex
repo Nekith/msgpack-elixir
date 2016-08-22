@@ -23,8 +23,8 @@ defmodule MessagePack.Packer do
     end
   end
 
-  @spec pack_iodata(term) :: { :ok, iolist(), integer } | { :error, term }
-  @spec pack_iodata(term, Keyword.t) :: { :ok, iolist(), integer } | { :error, term }
+  @spec pack_iodata(term) :: { :ok, iodata(), integer } | { :error, term }
+  @spec pack_iodata(term, Keyword.t) :: { :ok, iodata(), integer } | { :error, term }
   def pack_iodata(term, options \\ []) do
     new_options = options
       |> Keyword.put(:io_data, true)
@@ -40,8 +40,8 @@ defmodule MessagePack.Packer do
     end
   end
 
-  @spec pack_iodata!(term) :: {iolist(), integer} | no_return
-  @spec pack_iodata!(term, Keyword.t) :: {iolist(), integer} | no_return
+  @spec pack_iodata!(term) :: {iodata(), integer} | no_return
+  @spec pack_iodata!(term, Keyword.t) :: {iodata(), integer} | no_return
   def pack_iodata!(term, options \\ []) do
     case pack_iodata(term, options) do
       { :ok, packed, size } ->
