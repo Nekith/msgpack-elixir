@@ -77,8 +77,8 @@ defmodule MessagePack.Packer do
   defp do_pack(i, _) when is_integer(i), do: pack_uint(i)
   defp do_pack(f, _) when is_float(f), do: << 0xCB :: size(8), f :: size(64)-big-float-unit(1)>>
   defp do_pack(binary, %{enable_string: true}) when is_binary(binary), do: pack_string(binary)
-  defp do_pack(binary, _) when is_binary(binary), do: pack_raw(binary)
-  defp do_pack([{k, v} | _t] = list, options), do: pack_map(list, options)
+  defp do_pack(binary, _) when is_binary(binary), do: pack_bin(binary)
+  defp do_pack([{_k, _v} | _t] = list, options), do: pack_map(list, options)
   defp do_pack(list, options) when is_list(list), do: pack_array(list, options)
   defp do_pack(%{__struct__: _}=term, %{ext_packer: packer}) when is_function(packer), do: pack_ext_wrap(term, packer)
   defp do_pack(map, options) when is_map(map), do: pack_map(Map.to_list(map), options)
@@ -106,18 +106,6 @@ defmodule MessagePack.Packer do
   defp pack_uint(i) when i < 0x100000000,         do: << 0xCE :: 8, i :: 32-big-unsigned-integer-unit(1) >>
   defp pack_uint(i) when i < 0x10000000000000000, do: << 0xCF :: 8, i :: 64-big-unsigned-integer-unit(1) >>
   defp pack_uint(i), do: { :error, { :too_big, i } }
-
-  # for old row format
-  defp pack_raw(binary) when byte_size(binary) < 32 do
-    << 0b101 :: 3, byte_size(binary) :: 5, binary :: binary >>
-  end
-  defp pack_raw(binary) when byte_size(binary) < 0x10000 do
-    << 0xDA  :: 8, byte_size(binary) :: 16-big-unsigned-integer-unit(1), binary :: binary >>
-  end
-  defp pack_raw(binary) when byte_size(binary) < 0x100000000 do
-    << 0xDB  :: 8, byte_size(binary) :: 32-big-unsigned-integer-unit(1), binary :: binary >>
-  end
-  defp pack_raw(binary), do: { :error, { :too_big, binary } }
 
   # for string format
   defp pack_string(binary) when byte_size(binary) < 32 do
