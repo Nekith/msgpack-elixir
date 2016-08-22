@@ -19,6 +19,9 @@ end
 MessagePack.pack([1,2,3]) #=> { :ok, <<147,1,2,3>> }
 MessagePack.pack!([1,2,3]) #=> <<147,1,2,3>>
 
+{:ok, iolist, encoded_byte_size} = MessagePack.pack_iodata([1,2,3]) #=> {:ok, [<<147>>, [<<1>>, <<2>>, <<3>>]], 4}
+{iolist, encoded_byte_size} = MessagePack.pack_iodata!([1,2,3]) #=> {[<<147>>, [<<1>>, <<2>>, <<3>>]], 4}
+
 # unpack
 MessagePack.unpack(<<147,1,2,3>>) #=> { :ok, [1,2,3] }
 MessagePack.unpack!(<<147,1,2,3>>) #=> [1,2,3]
