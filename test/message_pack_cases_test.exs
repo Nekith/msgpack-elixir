@@ -1,5 +1,5 @@
 defmodule MessagePackCasesTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   defp unpack_all(binary) do
     do_unpack_all(binary, []) |> Enum.reverse

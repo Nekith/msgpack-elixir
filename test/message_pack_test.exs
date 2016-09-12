@@ -1,5 +1,5 @@
 defmodule MessagePackTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   defmacrop check(term, len, options \\ []) do
     quote location: :keep, bind_quoted: [term: term, len: len, options: options] do
