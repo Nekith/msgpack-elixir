@@ -2,8 +2,8 @@ defmodule MessagePack.Ext do
 
   @type type :: non_neg_integer
 
-  defcallback pack(term) :: { :ok, { type, binary } } | { :error, term }
-  defcallback unpack(type, binary) :: { :ok, term } | { :error, term }
+  @callback pack(term) :: { :ok, { type, binary } } | { :error, term }
+  @callback unpack(type, binary) :: { :ok, term } | { :error, term }
 
   defmodule Behaviour do
     defmacro __using__(_) do
